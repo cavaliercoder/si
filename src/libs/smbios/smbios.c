@@ -90,7 +90,7 @@ SMnextStruct(SMstruct *prev)
 		if ('\0' == *c && '\0' == *(c + 1)) {
 			/* Make sure next table is not beyond end of SMBIOS data (Thankyou
 			 * Microsoft for ommitting the structure count in
-			 * GetSystemFirmwareTable LOL)
+			 * GetSystemFirmwareTable lol)
 			 */
 			//if ((c + 2) < ((SMbyte*)smbios->SMBIOSTableData + smbios->Length))
 			return (SMstruct*)(c + 2);
@@ -104,16 +104,25 @@ SMnextStruct(SMstruct *prev)
 	return NULL;
 }
 
+SMstruct*
+SMgetStructByType(SMstruct *s, SMbyte type)
+{
+	while (NULL != s && type != s->type)
+		s = SMnextStruct(s);
+
+	return s;
+}
+
 char*
 SMgetString(SMstruct *s, SMbyte index)
 {
 	SMbyte	i = 0;
 	char	*c = NULL;
 
-	for (i = 1, c = (char *)s + s->length; *c; c += strlen(c) + 1, i++) {
+	// iterate each string in the struct payload
+	for (i = 1, c = (char *)s + s->length; *c; c += strlen(c) + 1, i++)
 		if (i == index)
 			return c;
-	}
 
 	return NULL;
 }

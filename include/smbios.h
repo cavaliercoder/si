@@ -10,13 +10,16 @@
  #include <stdint.h>
  #include <unistd.h>
 
-// 1byte type
+// 8bit BYTE type
 typedef unsigned char SMbyte;
 
-// 32bit Word type
-typedef unsigned long int SMword;
+// 16bit WORD type
+typedef unsigned short int SMword;
 
-// 64bit Word type
+// 32bit DWORD type
+typedef unsigned long int SMdword;
+
+// 64bit QWORD type
 typedef unsigned long long SMqword;
 
 /*
@@ -27,20 +30,24 @@ typedef struct _SMstruct
 	SMbyte type;
 	SMbyte length;
 	SMword handle;
+	SMbyte *data;
 } SMstruct;
 
 /*
  * Functions
  */
 SMstruct	*SMnextStruct(SMstruct *prev);
+SMstruct	*SMgetStructByType(SMstruct *s, SMbyte type);
 char		*SMgetString(SMstruct *s, SMbyte index);
 
 #define 	SMfirstStruct()	SMnextStruct(NULL)
 
 #define SMvalAtOffet(type, s, offset)	*((type *)((SMbyte*)s + offset))
-#define SMbyteAtOffset(s, offset)		*((SMbyte*)(SMbyte*)s + offset)
+#define SMbyteAtOffset(s, offset)		*((SMbyte*)((SMbyte*)s + offset))
 #define SMwordAtOffset(s, offset)		*((SMword*)((SMbyte*)s + offset))
-#define SMdwordAtOffset(s, offset)		*((SMword*)((SMbyte*)s + offset))
+#define SMdwordAtOffset(s, offset)		*((SMdword*)((SMbyte*)s + offset))
 #define SMqwordAtOffset(s, offset)		*((SMqword*)((SMbyte*)s + offset))
+
+#define SMgetStringAtOffset(s, offset)	SMgetString(s, *((SMbyte*)(SMbyte*)s + offset))
 
 #endif

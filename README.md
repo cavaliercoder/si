@@ -1,8 +1,8 @@
 # si
 
-Cross platform hardware and system inventory.
+Cross-platform hardware, software and configuration inventory.
 
-Si is a cross platform system inventory tool designed to provide a tree of
+Si is a cross-platform system inventory tool designed to provide a tree of
 inventory data which may be output into a number of common data formats
 including XML, JSON and YAML.
 
