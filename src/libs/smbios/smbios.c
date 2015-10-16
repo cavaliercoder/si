@@ -1,15 +1,27 @@
-#include "doctree.h"
-#include "smbios.h"
-
 /*
  * See:
  * http://www.dmtf.org/sites/default/files/standards/documents/DSP0134_2.8.0.pdf
  */
- 
-PRAW_SMBIOS_DATA smbios = NULL;
 
-PRAW_SMBIOS_DATA GetSmbiosData()
+#ifdef __APPLE__
+#include <Carbon/Carbon.h>
+#endif
+
+#ifdef _WIN32
+#include <Windows.h>
+#endif
+
+#include "doctree.h"
+#include "smbios.h"
+ 
+/*
+ * Return a pointer to the first SMBIOS table struct. This pointer should be
+ * free by the caller.
+ */
+static SMstruct*
+SMgetFirstStruct()
 {
+#if defined(_WIN32) // Windows
 	DWORD bufferSize = 0;
 
 	if (NULL != smbios)
@@ -23,47 +35,67 @@ PRAW_SMBIOS_DATA GetSmbiosData()
 	}
 
 	return smbios;
-}
 
-void ReleaseSmbiosData()
-{
-	if (NULL != smbios) {
-		LocalFree(smbios);
-		smbios = NULL;
-	}
-}
+#elif defined(__APPLE__) // OS X
+	mach_port_t				myMasterPort;
+	CFMutableDictionaryRef	myMatchingDictionary;
+	CFMutableDictionaryRef	properties = NULL;
+	io_object_t				foundService;
+	CFDataRef				smbiosdata;
+	CFIndex					len;
+	SMstruct				*data;
 
-PSMBIOS_STRUCT_HEADER GetNextStructure(PSMBIOS_STRUCT_HEADER previous)
-{
-	PSMBIOS_STRUCT_HEADER next = NULL;
-	PBYTE c = NULL;
+	IOMasterPort(MACH_PORT_NULL, &myMasterPort);
 
-	// Init SMBIOS data
-	if (NULL == smbios)
-		smbios = GetSmbiosData();
-
-	// Return NULL is no data found
-	if (NULL == smbios)
-		return NULL;
+	myMatchingDictionary = IOServiceMatching("AppleSMBIOS");
+	foundService = IOServiceGetMatchingService(myMasterPort, myMatchingDictionary);
 	
-	// Return first table if previous was NULL
-	if (NULL == previous)
-		return (PSMBIOS_STRUCT_HEADER)(&smbios->SMBIOSTableData[0]);
+	IORegistryEntryCreateCFProperties(foundService,
+									  &properties,
+									  kCFAllocatorDefault,
+									  kNilOptions);
+	
+	CFDictionaryGetValueIfPresent(properties,
+								  CFSTR( "SMBIOS"),
+								  (const void **)&smbiosdata);
+	
+	len = CFDataGetLength(smbiosdata);
+	data = malloc(sizeof(SMbyte) * len);
+	if (NULL == data)
+		return NULL;
+
+	CFDataGetBytes(smbiosdata, CFRangeMake(0, len), (UInt8*)data);
+
+	return data;
+#else // hopefully a unix derivative with /dev/mem
+
+#endif
+}
+
+SMstruct*
+SMnextStruct(SMstruct *prev)
+{
+	SMstruct *next = NULL;
+	SMbyte *c = NULL;
+
+	// Return first SMBIOS structure
+	if (NULL == prev)
+		return SMgetFirstStruct();
 
 	// Move to the end of the formatted structure
-	c = ((PBYTE)previous) + previous->Length;
+	c = ((SMbyte*) prev) + prev->length;
 	
 	// Search for the end of the unformatted structure (\0\0)
 	while (true) {
 		if ('\0' == *c && '\0' == *(c + 1)) {
-			/* Make sure next table is not beyond end of SMBIOS data
-			 * (Thankyou Microsoft for ommitting the structure count
-			 * in GetSystemFirmwareTable
+			/* Make sure next table is not beyond end of SMBIOS data (Thankyou
+			 * Microsoft for ommitting the structure count in
+			 * GetSystemFirmwareTable LOL)
 			 */
-			if ((c + 2) < ((PBYTE)smbios->SMBIOSTableData + smbios->Length))
-				return (PSMBIOS_STRUCT_HEADER)(c + 2);
-			else
-				return NULL; // We reached the end
+			//if ((c + 2) < ((SMbyte*)smbios->SMBIOSTableData + smbios->Length))
+			return (SMstruct*)(c + 2);
+			//else
+			//	return NULL; // We reached the end
 		}
 			
 		c++;
@@ -72,24 +104,16 @@ PSMBIOS_STRUCT_HEADER GetNextStructure(PSMBIOS_STRUCT_HEADER previous)
 	return NULL;
 }
 
-PSMBIOS_STRUCT_HEADER GetNextStructureOfType(PSMBIOS_STRUCT_HEADER previous, DWORD type)
+char*
+SMgetString(SMstruct *s, SMbyte index)
 {
-	PSMBIOS_STRUCT_HEADER next = previous;
-	while (NULL != (next = GetNextStructure(next))) {
-		if (type == next->Type)
-			return next;
+	SMbyte	i = 0;
+	char	*c = NULL;
+
+	for (i = 1, c = (char *)s + s->length; *c; c += strlen(c) + 1, i++) {
+		if (i == index)
+			return c;
 	}
-
-	return NULL;
-}
-
-PSMBIOS_STRUCT_HEADER GetStructureByHandle(WORD handle)
-{
-	PSMBIOS_STRUCT_HEADER header = NULL;
-
-	while (NULL != (header = GetNextStructure(header)))
-		if (handle == header->Handle)
-			return header;
 
 	return NULL;
 }
