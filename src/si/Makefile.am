@@ -9,7 +9,7 @@ bin_PROGRAMS = si
 si_SOURCES = \
 	main.c
 
-si_CFLAGS = -I $(top_srcdir)/libs/doctree/include $(DARWIN_CFLAGS)
+si_CFLAGS = -I $(top_srcdir)/src/libs/doctree/include $(DARWIN_CFLAGS)
 
 si_LDADD = \
 	$(top_srcdir)/src/libs/smbios/libsmbios.a \
