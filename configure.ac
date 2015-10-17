@@ -19,4 +19,12 @@ AM_CONDITIONAL([DARWIN], [test $(uname -s) -eq "Darwin"])
 AM_PROG_AR
 LT_INIT
 
+
+case $host_os in
+	darwin*)
+		DARWIN_CFLAGS="-framework CoreServices -framework IOKit"
+		AC_SUBST(DARWIN_CFLAGS)
+		;;
+esac
+
 AC_OUTPUT

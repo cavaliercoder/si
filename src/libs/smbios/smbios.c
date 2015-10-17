@@ -11,7 +11,8 @@
 #include <Windows.h>
 #endif
 
-#include "doctree.h"
+#include <string.h>
+ 
 #include "smbios.h"
  
 /*
@@ -86,7 +87,7 @@ SMnextStruct(SMstruct *prev)
 	c = ((SMbyte*) prev) + prev->length;
 	
 	// Search for the end of the unformatted structure (\0\0)
-	while (true) {
+	while (1) {
 		if ('\0' == *c && '\0' == *(c + 1)) {
 			/* Make sure next table is not beyond end of SMBIOS data (Thankyou
 			 * Microsoft for ommitting the structure count in

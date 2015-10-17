@@ -1,8 +1,5 @@
 ## Process this file with automake to produce Makefile.in
 
-#ifeq ($(shell uname -s),Darwin)
-DARWIN_CFLAGS = -framework CoreServices -framework IOKit
-#endif
 
 bin_PROGRAMS = si
 
