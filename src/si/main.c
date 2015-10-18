@@ -4,10 +4,6 @@
 #include "doctree.h"
 #include "smbios.h"
 
-// http://www.dmtf.org/sites/default/files/standards/documents/DSP0134_2.8.0.pdf
-// https://developer.apple.com/library/mac/documentation/Porting/Conceptual/PortingUnix/compiling/compiling.html
-// http://www.opensource.apple.com/source/AppleSMBIOS/AppleSMBIOS-38/AppleSMBIOS.cpp
-
 // 7.5.1 Processor Information — Processor Type 
 static DTchar* SMPROC_TYPES[] = {
 	_T("Invalid"),						// 0x00 Invalid
@@ -31,18 +27,27 @@ static DTchar* SMPROC_CHARACTERISTICS[] = {
 	_T("Power/Performance Control")		// Bit 7
 };
 
+#define BUFLEN	4096
 
 int main(int argc, char* argv[])
 {
-	DTnode *doc, *nHardware, *nSystem, *nProcessor, *nBios;
+	DTnode *doc, *nHardware, *nSmbios, *nSystem, *nProcessor, *nBios;
 	SMstruct *t1, *tn;
 	int i = 0;
 	char *c = NULL;
+	char buf[BUFLEN];
+
+	// SMBIOS entry point
+	SMentryPoint *ep = SMgetEntryPoint();
 
 	t1 = SMfirstStruct();
 
 	doc = DTnewNode(NULL, _T("Inventory"), 0);
 
+		snprintf(buf, BUFLEN, "%p", t1);
+		DTsetAtt(doc, _T("Location"), buf, 0);
+
+	// System
 	tn = SMgetStructByType(t1, 0x01);
 	nSystem = DTnewNode(doc, _T("System"), 0);
 	DTsetAtt(nSystem, _T("Manufacturer"), SMgetStringAtOffset(tn, 0x04), 0);
@@ -54,6 +59,32 @@ int main(int argc, char* argv[])
 
 	nHardware = DTnewNode(doc, _T("Hardware"), 0);
 
+	// SMBIOS
+	nSmbios = DTnewNode(nHardware, _T("Smbios"), 0);
+	if (NULL != ep) {
+		snprintf(buf, BUFLEN, "%i.%i", ep->majorVersion, ep->minorVersion);
+		DTsetAtt(nSmbios, _T("Version"), buf, 0);
+
+		snprintf(buf, BUFLEN, "0x%0lX", ep->entryPointLength);
+		DTsetAtt(nSmbios, _T("EntryPointLength"), buf, 0);
+
+		snprintf(buf, BUFLEN, "0x%0lX", ep->dmi.tableAddress);
+		DTsetAtt(nSmbios, _T("Address"), buf, 0);
+
+		snprintf(buf, BUFLEN, "%i", ep->maxStructureSize);
+		DTsetAtt(nSmbios, _T("MaxStructureSize"), buf, 0);
+
+		snprintf(buf, BUFLEN, "%i", ep->dmi.tableLength);
+		DTsetAtt(nSmbios, _T("TableLength"), buf, 0);
+
+		snprintf(buf, BUFLEN, "%i", ep->dmi.structureCount);
+		DTsetAtt(nSmbios, _T("StructureCount"), buf, 0);
+
+		snprintf(buf, BUFLEN, "%i", ep->dmi.bcdRevision);
+		DTsetAtt(nSmbios, _T("BcdRevision"), buf, 0);
+	}
+
+	// Processor
 	tn = SMgetStructByType(t1, 0x04);
 	nProcessor = DTnewNode(nHardware, _T("Processor"), 0);
 	DTsetAtt(nProcessor, "Socket", SMgetStringAtOffset(tn, 0x04), 0);
@@ -70,6 +101,7 @@ int main(int argc, char* argv[])
 			DTsetAttAppend(nProcessor, "Characteristics", SMPROC_CHARACTERISTICS[SMbyteAtOffset(tn, 0x26) & (1 << i)],0);
 	*/
 
+	// BIOS
 	tn = SMgetStructByType(t1, 0x00);
 	nBios = DTnewNode(nHardware, _T("Bios"), 0);
 	DTsetAtt(nBios, "Vendor", SMgetStringAtOffset(tn, 0x04), 0);
@@ -80,6 +112,7 @@ int main(int argc, char* argv[])
 	DTprintJson(stdout, doc, DTOUT_WHITESPACE);
 	
 	free(t1);
+	free(ep);
 
     return 0;
 }

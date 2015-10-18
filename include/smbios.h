@@ -1,12 +1,6 @@
 #ifndef SMBIOS_H
 #define SMBIOS_H
 
-/*
- * See:
- * http://www.dmtf.org/sites/default/files/standards/documents/DSP0134_2.8.0.pdf
- * http://linux.dell.com/libsmbios/main/
- */
-
  #include <stdint.h>
  #include <unistd.h>
 
@@ -25,22 +19,46 @@ typedef unsigned long long SMqword;
 /*
  * Structures
  */
+#pragma pack(1)             // enable 8-bit struct packing
+
+typedef struct _DMIentryPoint {
+    SMbyte    anchor[5];
+    SMbyte    checksum;
+    SMword    tableLength;
+    SMdword   tableAddress;
+    SMword    structureCount;
+    SMbyte    bcdRevision;
+} DMIentryPoint;
+
+typedef struct _SMentryPoint {
+    SMbyte    anchor[4];
+    SMbyte    checksum;
+    SMbyte    entryPointLength;
+    SMbyte    majorVersion;
+    SMbyte    minorVersion;
+    SMword    maxStructureSize;
+    SMbyte    entryPointRevision;
+    SMbyte    formattedArea[5];
+    DMIentryPoint   dmi;
+} SMentryPoint;
+
 typedef struct _SMstruct
 {
 	SMbyte type;
 	SMbyte length;
 	SMword handle;
-	SMbyte *data;
+	SMbyte data[1];
 } SMstruct;
 
 /*
  * Functions
  */
-SMstruct	*SMnextStruct(SMstruct *prev);
-SMstruct	*SMgetStructByType(SMstruct *s, SMbyte type);
-char		*SMgetString(SMstruct *s, SMbyte index);
+SMentryPoint	*SMgetEntryPoint();
+SMstruct		*SMnextStruct(SMstruct *prev);
+SMstruct		*SMgetStructByType(SMstruct *s, SMbyte type);
+char			*SMgetString(SMstruct *s, SMbyte index);
 
-#define 	SMfirstStruct()	SMnextStruct(NULL)
+#define 		SMfirstStruct()	SMnextStruct(NULL)
 
 #define SMvalAtOffet(type, s, offset)	*((type *)((SMbyte*)s + offset))
 #define SMbyteAtOffset(s, offset)		*((SMbyte*)((SMbyte*)s + offset))

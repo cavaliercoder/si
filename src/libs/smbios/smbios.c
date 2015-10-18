@@ -1,6 +1,10 @@
 /*
  * See:
  * http://www.dmtf.org/sites/default/files/standards/documents/DSP0134_2.8.0.pdf
+ * http://www.opensource.apple.com/source/AppleSMBIOS/AppleSMBIOS-28/
+ * https://github.com/RevoGirl/RevoBoot/blob/master/i386/libsaio/smbios/tools/smbios2struct.c
+ * http://linux.dell.com/libsmbios/main/
+ * http://download.microsoft.com/download/5/D/6/5D6EAF2B-7DDF-476B-93DC-7CF0072878E6/SMBIOS.doc
  */
 
 #ifdef __APPLE__
@@ -14,7 +18,81 @@
 #include <string.h>
  
 #include "smbios.h"
- 
+
+/*
+ * Returns a checksum for the given memory range to validate a SMBIOS 5.2.1
+ * structure table entry point.
+ */
+static SMbyte checksum(void *b, size_t num)
+{
+	int		i = 0;
+    SMbyte	csum = 0;
+    SMbyte	*cp = (SMbyte *) b;
+
+    for (i = 0; i < num; i++)
+        csum += *cp++;
+
+    return csum;
+}
+
+/*
+ * Returns a pointer to a copy of the SMBIOS entry point or NULL on error.
+ * It is the responsibility of the caller to free the result.
+ */
+SMentryPoint*
+SMgetEntryPoint()
+{
+	SMentryPoint *out = NULL;
+
+#ifdef __APPLE__
+	mach_port_t		masterPort;
+    io_service_t	service = MACH_PORT_NULL;
+	CFDataRef		dataRef;
+	CFIndex			dataLen;
+
+	IOMasterPort(MACH_PORT_NULL, &masterPort);
+	service = IOServiceGetMatchingService(masterPort, IOServiceMatching("AppleSMBIOS"));
+    if (0 == service)
+    	return NULL;
+
+	dataRef = (CFDataRef) IORegistryEntryCreateCFProperty(service, 
+														  CFSTR("SMBIOS-EPS"), 
+														  kCFAllocatorDefault, 
+														  kNilOptions);
+
+	if (NULL == dataRef)
+		return NULL;
+
+	// allocate a new buffer
+	dataLen = CFDataGetLength(dataRef);
+	out = malloc(dataLen);
+	if (NULL == out)
+		return NULL;
+
+	// copy data
+	CFDataGetBytes (dataRef, CFRangeMake(0, dataLen), (UInt8*)out);
+
+	// clean up
+	CFRelease(dataRef);
+	IOObjectRelease(service);
+#endif
+
+	// validate struct
+	if (0 != memcmp(out->anchor, "_SM_", 4))
+		return NULL;
+
+	if (0 != checksum(out, sizeof(SMentryPoint)))
+		return NULL;
+
+	if (0 != memcmp(out->dmi.anchor, "_DMI_", 5))
+		return NULL;
+
+	if (0 != checksum(&out->dmi, sizeof(DMIentryPoint)))
+		return NULL;
+
+	return out;
+}
+
 /*
  * Return a pointer to the first SMBIOS table struct. This pointer should be
  * free by the caller.

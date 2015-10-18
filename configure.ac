@@ -19,7 +19,7 @@ AM_CONDITIONAL([DARWIN], [test $(uname -s) -eq "Darwin"])
 AM_PROG_AR
 LT_INIT
 
-
+# configure libsmbios
 case $host_os in
 	darwin*)
 		DARWIN_CFLAGS="-framework CoreServices -framework IOKit"
